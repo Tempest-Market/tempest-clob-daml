@@ -1,0 +1,160 @@
+module Token where
+
+import DA.Map as M
+import DA.Optional (fromOptional)
+
+-- Account-model ERC20 using DA.Map
+-- - balances : Party -> Int
+-- - allowances : owner -> (spender -> Int)
+-- All state lives on a single Token contract (account model, not UTXO).
+
+template Token with
+  issuer      : Party
+  name        : Text
+  symbol      : Text
+  decimals    : Int
+  totalSupply : Int
+  balances    : M.Map Party Int
+  allowances  : M.Map (Party, Party) Int
+ where
+  signatory issuer
+
+  key (issuer, symbol) : (Party, Text)
+  maintainer key._1
+
+  ----------------------------------------
+  -- Helpers (pure)
+  ----------------------------------------
+  -- get balance (default 0)
+  nonconsuming choice Noop : ()
+    controller issuer
+    do
+      pure ()
+
+  -- local pure functions
+  -- NOTE: Pure helpers are defined as `let` blocks inside choices that need them.
+
+  ----------------------------------------
+  -- Mint (issuer only)
+  ----------------------------------------
+  choice Mint : ContractId Token with
+      to     : Party
+      amount : Int
+    controller issuer
+    do
+      assertMsg "Mint amount must be positive" (amount > 0)
+      let cur = fromOptional 0 (M.lookup to balances)
+      let newBal = cur + amount
+      let newBalances =
+            if newBal == 0 then M.delete to balances
+            else M.insert to newBal balances
+      let newSupply = totalSupply + amount
+      create this with balances = newBalances; totalSupply = newSupply
+
+  ----------------------------------------
+  -- Burn (self-burn; token-holder calls, supply decreases)
+  ----------------------------------------
+  choice Burn : ContractId Token with
+      owner  : Party
+      amount : Int
+    controller owner
+    do
+    assertMsg "Burn amount must be positive" (amount > 0)
+    let cur = fromOptional 0 (M.lookup owner balances)
+    assertMsg "Insufficient balance to burn" (cur >= amount)
+    let newOwnerBal = cur - amount
+    let newBalances =
+          if newOwnerBal == 0 then M.delete owner balances
+          else M.insert owner newOwnerBal balances
+    let newSupply = totalSupply - amount
+    assertMsg "Total supply underflow" (newSupply >= 0)
+    create this with balances = newBalances; totalSupply = newSupply
+
+  ----------------------------------------
+  -- transfer(msg.sender -> to)
+  ----------------------------------------
+  choice Transfer : ContractId Token with
+      from  : Party
+      to    : Party
+      value : Int
+    controller from
+    do
+    assertMsg "Transfer value must be positive" (value > 0)
+    assertMsg "Cannot transfer to self" (to /= from)
+    let fromBal = fromOptional 0 (M.lookup from balances)
+    assertMsg "Insufficient balance" (fromBal >= value)
+    let toBal = fromOptional 0 (M.lookup to balances)
+    let newFrom = fromBal - value
+    let newTo   = toBal + value
+    let step1   = if newFrom == 0 then M.delete from balances else M.insert from newFrom balances
+    let newBalances = if newTo == 0 then M.delete to step1 else M.insert to newTo step1
+    create this with balances = newBalances
+
+  ----------------------------------------
+  -- approve(owner -> spender, value)
+  ----------------------------------------
+  choice Approve : ContractId Token with
+      owner   : Party
+      spender : Party
+      value   : Int
+    controller owner
+    do
+    assertMsg "Approve value must be >= 0" (value >= 0)
+    let newAllowances = 
+          if value == 0 then M.delete (owner, spender) allowances
+          else M.insert (owner, spender) value allowances
+    create this with allowances = newAllowances
+
+  ----------------------------------------
+  -- transferFrom(owner -> to) by spender
+  ----------------------------------------
+  choice TransferFrom : ContractId Token with
+      owner  : Party
+      spender: Party
+      to     : Party
+      value  : Int
+    controller spender
+    do
+    assertMsg "TransferFrom value must be positive" (value > 0)
+    assertMsg "Owner != To" (owner /= to)
+
+    -- check allowance
+    let curAllow   = fromOptional 0 (M.lookup (owner, spender) allowances)
+    assertMsg "Allowance insufficient" (curAllow >= value)
+
+    -- check owner balance
+    let ownerBal = fromOptional 0 (M.lookup owner balances)
+    assertMsg "Owner balance insufficient" (ownerBal >= value)
+
+    -- apply transfer
+    let toBal      = fromOptional 0 (M.lookup to balances)
+        newOwner   = ownerBal - value
+        newTo      = toBal + value
+        b1         = if newOwner == 0 then M.delete owner balances else M.insert owner newOwner balances
+        newBalances= if newTo == 0 then M.delete to b1 else M.insert to newTo b1
+
+    -- decrease allowance
+    let newAllowVal = curAllow - value
+        newAllowances =
+          if newAllowVal == 0 then M.delete (owner, spender) allowances
+          else M.insert (owner, spender) newAllowVal allowances
+
+    create this with balances = newBalances; allowances = newAllowances
+
+  ----------------------------------------
+  -- Read-only helpers (nonconsuming)
+  ----------------------------------------
+  nonconsuming choice BalanceOf : Int with
+      account : Party
+    controller issuer
+    do
+      let bal = fromOptional 0 (M.lookup account balances)
+      return bal
+
+  nonconsuming choice AllowanceOf : Int with
+      owner   : Party
+      spender : Party
+    controller issuer
+    do
+      let allow = fromOptional 0 (M.lookup (owner, spender) allowances)
+      return allow
