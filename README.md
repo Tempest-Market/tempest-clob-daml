@@ -1,6 +1,6 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/digital-asset/daml/blob/main/LICENSE)
 
-# create-daml-app
+# tempest-clob-daml
 
 See [documentation] for details.
 
@@ -72,4 +72,3 @@ of `npm run-script build`).
 
 Once both files are uploaded, you need to tell Daml Hub to deploy them. A few
 seconds later, your website should be up and running.
-# tempest-clob-daml
