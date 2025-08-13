@@ -1,7 +1,7 @@
 module TokenSetup where
 
 import DA.Optional (fromSomeNote)
-import qualified DA.Text as T
+import DA.Text as T
 import Daml.Script
 import Token
 import DA.Map as M
@@ -13,10 +13,12 @@ tokenSetup = do
   alice <- allocateParty "Alice"
   bob <- allocateParty "Bob"
   issuer <- allocateParty "Issuer"
+  public <- allocateParty "Public"
   
   tok <- submit issuer do
     createCmd Token with
       issuer = issuer
+      public = public
       name = "MapToken"
       symbol = "MAP"
       decimals = 18
@@ -24,10 +26,18 @@ tokenSetup = do
       balances = M.empty
       allowances = M.empty
 
-  tok1 <- submit issuer do exerciseCmd tok Mint with to = alice; amount = 100
+  tok <- submit issuer do exerciseCmd tok Mint with to = alice; amount = 100
+  tok <- submit issuer do exerciseCmd tok Mint with to = issuer; amount = 100
 
-  _ <- submit alice do exerciseCmd tok1 Transfer with from = alice; to = bob; value = 30
-  tok2 <- submit alice do exerciseCmd tok1 Approve with owner = alice; spender = bob; value = 25
-  _tok3 <- submit bob do exerciseCmd tok2 TransferFrom with owner = alice; spender = bob; to = bob; value = 20
+
+  tok <- submitMulti [alice] [public] do
+    exerciseCmd tok Transfer with from = alice; to = bob; value = 30
+
+
+  tok <- submitMulti [alice] [public] $ do
+    exerciseCmd tok Approve with owner = alice; spender = bob; value = 25
+
+  tok <- submitMulti [bob] [public] do
+    exerciseCmd tok TransferFrom with owner = alice; spender = bob; to = bob; value = 20
 
   pure ()

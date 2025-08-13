@@ -10,6 +10,7 @@ import DA.Optional (fromOptional)
 
 template Token with
   issuer      : Party
+  public      : Party
   name        : Text
   symbol      : Text
   decimals    : Int
@@ -18,6 +19,7 @@ template Token with
   allowances  : M.Map (Party, Party) Int
  where
   signatory issuer
+  observer [issuer, public]
 
   key (issuer, symbol) : (Party, Text)
   maintainer key._1
@@ -146,7 +148,7 @@ template Token with
   ----------------------------------------
   nonconsuming choice BalanceOf : Int with
       account : Party
-    controller issuer
+    controller account
     do
       let bal = fromOptional 0 (M.lookup account balances)
       return bal
@@ -154,7 +156,7 @@ template Token with
   nonconsuming choice AllowanceOf : Int with
       owner   : Party
       spender : Party
-    controller issuer
+    controller owner
     do
       let allow = fromOptional 0 (M.lookup (owner, spender) allowances)
       return allow
