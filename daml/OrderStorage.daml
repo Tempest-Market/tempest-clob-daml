@@ -1,0 +1,46 @@
+module OrderStorage where
+
+import DA.Optional
+import DA.List (take, drop)
+import qualified DA.Map as M
+
+
+-- -------------------------
+-- Data structures
+-- -------------------------
+data Order = Order
+  with
+    owner         : Party
+    price         : Decimal
+    depositAmount : Decimal
+  deriving (Eq, Show)
+
+data OrderStorage = OrderStorage
+  with
+    -- list[price][id] = nextId (0 == end)
+    list         : M.Map Decimal (M.Map Int Int)
+    -- orders[id] = Order
+    orders       : M.Map Int Order
+    -- head[price] = id of head (0 if empty)
+    head         : M.Map Decimal Int
+    count        : Int         -- last issued id (0 means none yet)
+    engine       : Party
+    dormantOrder : Optional Order
+  deriving (Eq, Show)
+
+
+
+-- -------------------------
+-- Methods to change the state of the OrderStorage
+-- -------------------------
+
+insertId : OrderStorage -> Decimal -> Int -> Decimal -> OrderStorage
+insertId os price id amount = 
+    let last  = None                                    -- Int in Daml
+        head  = fromOptional None (M.lookup price os.head)
+        list  = fromOptional M.empty (M.lookup price os.list)
+        orders = os.orders                           -- whole orders map
+    
+
+
+

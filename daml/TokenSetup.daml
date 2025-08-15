@@ -22,22 +22,37 @@ tokenSetup = do
       name = "MapToken"
       symbol = "MAP"
       decimals = 18
-      totalSupply = 0
+      totalSupply = 0.0
       balances = M.empty
       allowances = M.empty
 
-  tok <- submit issuer do exerciseCmd tok Mint with to = alice; amount = 100
-  tok <- submit issuer do exerciseCmd tok Mint with to = issuer; amount = 100
+  tok <- submit issuer do exerciseCmd tok Mint with to = alice; amount = 100.0
+  tok <- submit issuer do exerciseCmd tok Mint with to = issuer; amount = 100.0
 
+  
 
   tok <- submitMulti [alice] [public] do
-    exerciseCmd tok Transfer with from = alice; to = bob; value = 30
+    exerciseCmd tok Transfer with from = alice; to = bob; value = 30.0
 
 
   tok <- submitMulti [alice] [public] $ do
-    exerciseCmd tok Approve with owner = alice; spender = bob; value = 25
+    exerciseCmd tok Approve with owner = alice; spender = bob; value = 25.0
 
+  balance1 <- submitMulti [alice] [public] do exerciseCmd tok BalanceOf with account = alice
+  
   tok <- submitMulti [bob] [public] do
-    exerciseCmd tok TransferFrom with owner = alice; spender = bob; to = bob; value = 20
+    exerciseCmd tok TransferFrom with owner = alice; spender = bob; to = bob; value = 20.0
+
+  balance1 <- submitMulti [alice] [public] do exerciseCmd tok BalanceOf with account = alice
+  balance2 <- submitMulti [bob] [public] do exerciseCmd tok BalanceOf with account = bob
+  balance3 <- submitMulti [issuer] [public] do exerciseCmd tok BalanceOf with account = issuer
+
+  debug ("balance1 is: " <> show tok)
+  debug ("balance2 is: " <> show balance2)
+  debug ("balance3 is: " <> show balance3)
+  assertMsg "balance1 is 50" (balance1 == 50.0)
+  assertMsg "balance2 is 20" (balance2 == 50.0)
+  assertMsg "balance3 is 100" (balance3 == 100.0)
+
 
   pure ()

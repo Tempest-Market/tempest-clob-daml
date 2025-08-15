@@ -14,9 +14,9 @@ template Token with
   name        : Text
   symbol      : Text
   decimals    : Int
-  totalSupply : Int
-  balances    : M.Map Party Int
-  allowances  : M.Map (Party, Party) Int
+  totalSupply : Decimal
+  balances    : M.Map Party Decimal
+  allowances  : M.Map (Party, Party) Decimal
  where
   signatory issuer
   observer [issuer, public]
@@ -27,7 +27,7 @@ template Token with
   ----------------------------------------
   -- Helpers (pure)
   ----------------------------------------
-  -- get balance (default 0)
+  -- get balance (default 0.0)
   nonconsuming choice Noop : ()
     controller issuer
     do
@@ -41,14 +41,14 @@ template Token with
   ----------------------------------------
   choice Mint : ContractId Token with
       to     : Party
-      amount : Int
+      amount : Decimal
     controller issuer
     do
-      assertMsg "Mint amount must be positive" (amount > 0)
-      let cur = fromOptional 0 (M.lookup to balances)
+      assertMsg "Mint amount must be positive" (amount > 0.0)
+      let cur = fromOptional 0.0 (M.lookup to balances)
       let newBal = cur + amount
       let newBalances =
-            if newBal == 0 then M.delete to balances
+            if newBal == 0.0 then M.delete to balances
             else M.insert to newBal balances
       let newSupply = totalSupply + amount
       create this with balances = newBalances; totalSupply = newSupply
@@ -58,18 +58,18 @@ template Token with
   ----------------------------------------
   choice Burn : ContractId Token with
       owner  : Party
-      amount : Int
+      amount : Decimal
     controller owner
     do
-    assertMsg "Burn amount must be positive" (amount > 0)
-    let cur = fromOptional 0 (M.lookup owner balances)
+    assertMsg "Burn amount must be positive" (amount > 0.0)
+    let cur = fromOptional 0.0 (M.lookup owner balances)
     assertMsg "Insufficient balance to burn" (cur >= amount)
     let newOwnerBal = cur - amount
     let newBalances =
-          if newOwnerBal == 0 then M.delete owner balances
+          if newOwnerBal == 0.0 then M.delete owner balances
           else M.insert owner newOwnerBal balances
     let newSupply = totalSupply - amount
-    assertMsg "Total supply underflow" (newSupply >= 0)
+    assertMsg "Total supply underflow" (newSupply >= 0.0)
     create this with balances = newBalances; totalSupply = newSupply
 
   ----------------------------------------
@@ -78,18 +78,18 @@ template Token with
   choice Transfer : ContractId Token with
       from  : Party
       to    : Party
-      value : Int
+      value : Decimal
     controller from
     do
-    assertMsg "Transfer value must be positive" (value > 0)
+    assertMsg "Transfer value must be positive" (value > 0.0)
     assertMsg "Cannot transfer to self" (to /= from)
-    let fromBal = fromOptional 0 (M.lookup from balances)
+    let fromBal = fromOptional 0.0 (M.lookup from balances)
     assertMsg "Insufficient balance" (fromBal >= value)
-    let toBal = fromOptional 0 (M.lookup to balances)
+    let toBal = fromOptional 0.0 (M.lookup to balances)
     let newFrom = fromBal - value
     let newTo   = toBal + value
-    let step1   = if newFrom == 0 then M.delete from balances else M.insert from newFrom balances
-    let newBalances = if newTo == 0 then M.delete to step1 else M.insert to newTo step1
+    let step1   = if newFrom == 0.0 then M.delete from balances else M.insert from newFrom balances
+    let newBalances = if newTo == 0.0 then M.delete to step1 else M.insert to newTo step1
     create this with balances = newBalances
 
   ----------------------------------------
@@ -98,12 +98,12 @@ template Token with
   choice Approve : ContractId Token with
       owner   : Party
       spender : Party
-      value   : Int
+      value   : Decimal
     controller owner
     do
-    assertMsg "Approve value must be >= 0" (value >= 0)
+    assertMsg "Approve value must be >= 0.0" (value >= 0.0)
     let newAllowances = 
-          if value == 0 then M.delete (owner, spender) allowances
+          if value == 0.0 then M.delete (owner, spender) allowances
           else M.insert (owner, spender) value allowances
     create this with allowances = newAllowances
 
@@ -114,31 +114,31 @@ template Token with
       owner  : Party
       spender: Party
       to     : Party
-      value  : Int
+      value  : Decimal
     controller spender
     do
-    assertMsg "TransferFrom value must be positive" (value > 0)
+    assertMsg "TransferFrom value must be positive" (value > 0.0)
     assertMsg "Owner != To" (owner /= to)
 
     -- check allowance
-    let curAllow   = fromOptional 0 (M.lookup (owner, spender) allowances)
+    let curAllow   = fromOptional 0.0 (M.lookup (owner, spender) allowances)
     assertMsg "Allowance insufficient" (curAllow >= value)
 
     -- check owner balance
-    let ownerBal = fromOptional 0 (M.lookup owner balances)
+    let ownerBal = fromOptional 0.0 (M.lookup owner balances)
     assertMsg "Owner balance insufficient" (ownerBal >= value)
 
     -- apply transfer
-    let toBal      = fromOptional 0 (M.lookup to balances)
+    let toBal      = fromOptional 0.0 (M.lookup to balances)
         newOwner   = ownerBal - value
         newTo      = toBal + value
-        b1         = if newOwner == 0 then M.delete owner balances else M.insert owner newOwner balances
-        newBalances= if newTo == 0 then M.delete to b1 else M.insert to newTo b1
+        b1         = if newOwner == 0.0 then M.delete owner balances else M.insert owner newOwner balances
+        newBalances= if newTo == 0.0 then M.delete to b1 else M.insert to newTo b1
 
     -- decrease allowance
     let newAllowVal = curAllow - value
         newAllowances =
-          if newAllowVal == 0 then M.delete (owner, spender) allowances
+          if newAllowVal == 0.0 then M.delete (owner, spender) allowances
           else M.insert (owner, spender) newAllowVal allowances
 
     create this with balances = newBalances; allowances = newAllowances
@@ -146,17 +146,17 @@ template Token with
   ----------------------------------------
   -- Read-only helpers (nonconsuming)
   ----------------------------------------
-  nonconsuming choice BalanceOf : Int with
+  nonconsuming choice BalanceOf : Decimal with
       account : Party
     controller account
     do
-      let bal = fromOptional 0 (M.lookup account balances)
+      let bal = fromOptional 0.0 (M.lookup account balances)
       return bal
 
-  nonconsuming choice AllowanceOf : Int with
+  nonconsuming choice AllowanceOf : Decimal with
       owner   : Party
       spender : Party
     controller owner
     do
-      let allow = fromOptional 0 (M.lookup (owner, spender) allowances)
+      let allow = fromOptional 0.0 (M.lookup (owner, spender) allowances)
       return allow
