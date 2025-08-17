@@ -1,7 +1,6 @@
 module OrderStorage where
 
 import DA.Optional
-import DA.List (take, drop)
 import qualified DA.Map as M
 
 
@@ -17,7 +16,7 @@ data Order = Order
 
 data OrderStorage = OrderStorage
   with
-    -- list[price][id] = nextId (0 == end)
+    -- list[price][id] = nextId (0 if empty)
     list         : M.Map Decimal (M.Map Int Int)
     -- orders[id] = Order
     orders       : M.Map Int Order
@@ -29,6 +28,9 @@ data OrderStorage = OrderStorage
   deriving (Eq, Show)
 
 
+test: Int -> Int -> Int
+test a b = a + b
+
 
 -- -------------------------
 -- Methods to change the state of the OrderStorage
@@ -36,10 +38,19 @@ data OrderStorage = OrderStorage
 
 insertId : OrderStorage -> Decimal -> Int -> Decimal -> OrderStorage
 insertId os price id amount = 
-    let last  = None                                    -- Int in Daml
-        head  = fromOptional None (M.lookup price os.head)
-        list  = fromOptional M.empty (M.lookup price os.list)
-        orders = os.orders                           -- whole orders map
+    let headId = fromOptional 0 (M.lookup price os.head)  -- Get head ID, default to 0 (empty)
+        orderList = fromOptional M.empty (M.lookup price os.list)
+        orders = os.orders
+    in
+    -- insert order to the linked list
+    -- if the list is empty (head ID is 0)
+    if headId == 0 then
+      let newHead = M.insert price id os.head
+          newOrderList = M.insert id 0 orderList  -- Point to 0 (end of list)
+          newList = M.insert price newOrderList os.list
+      in os with head = newHead; list = newList; orders = orders
+    else
+      os
     
 
 
