@@ -36,8 +36,8 @@ test a b = a + b
 -- Methods to change the state of the OrderStorage
 -- -------------------------
 
-insertId : OrderStorage -> Decimal -> Int -> Decimal -> OrderStorage
-insertId os price id amount = 
+_insertId : OrderStorage -> Decimal -> Int -> Decimal -> OrderStorage
+_insertId os price id amount = 
     let headId = fromOptional 0 (M.lookup price os.head)  -- Get head ID, default to 0 (empty)
         orderList = fromOptional M.empty (M.lookup price os.list)
         orders = os.orders
@@ -51,11 +51,11 @@ insertId os price id amount =
       in os with head = newHead; list = newList; orders = orders
     -- traverse in the order list and insert the order
     else
-      _traverseAndInsert os price headId amount
+      __traverseAndInsert os price headId amount
       
-
-_traverseAndInsert : OrderStorage -> Decimal -> Int -> Decimal -> OrderStorage
-_traverseAndInsert os price headId amount =
+-- internal internal function to traverse the order list and insert the order in _insertId
+__traverseAndInsert : OrderStorage -> Decimal -> Int -> Decimal -> OrderStorage
+__traverseAndInsert os price headId amount =
   if headId == 0 then
     os
   else
@@ -88,6 +88,7 @@ _traverseAndInsert os price headId amount =
             -- if next order amount is greater than the amount insert the order, traverse until you find the next order that is less than the amount
             GT ->
               _traverseAndInsert os price nextId amount
+
 
 
 
