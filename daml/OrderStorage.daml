@@ -113,3 +113,16 @@ __fpopOS os price =
       newOrderList = M.delete first orderList
       newList = M.insert price newOrderList os.list
     in os with head = newHead; list = newList
+
+_fpop: OrderStorage -> Decimal -> (Int, OrderStorage)
+_fpop os price =
+  let
+    first = __fpopId os price
+  in
+  if first == 0 then
+    (0, os)
+  else
+    let
+      newOS = __fpopOS os price
+    in
+    (first, newOS)
