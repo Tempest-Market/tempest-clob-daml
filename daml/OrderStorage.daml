@@ -49,8 +49,9 @@ insertId os price id amount =
           newOrderList = M.insert id 0 orderList  -- Point to 0 (end of list)
           newList = M.insert price newOrderList os.list
       in os with head = newHead; list = newList; orders = orders
+    -- traverse in the order list and insert the order
     else
-      os
+      _traverseAndInsert os price headId amount
       
 
 _traverseAndInsert : OrderStorage -> Decimal -> Int -> Decimal -> OrderStorage
