@@ -83,17 +83,33 @@ __traverseAndInsert os price headId amount =
               os
             -- if next order amount is greater than the amount insert the order, traverse until you find the next order that is less than the amount
             GT ->
-              _traverseAndInsert os price nextId amount
+              __traverseAndInsert os price nextId amount
 
 
--- front pop from the order storage
-_fpop: OrderStorage -> Decimal -> OrderStorage
-_fpop os price =
+-- front pop Id from the order storage
+__fpopId: OrderStorage -> Decimal -> Int
+__fpopId os price =
+  -- get first order from the price
   let
-    headId = fromOptional 0 (M.lookup price os.head)
-    orderList = fromOptional M.empty (M.lookup price os.list)
+    first = fromOptional 0 (M.lookup price os.head)
   in
-  if headId == 0 || orderList == M.empty then
+  first
+
+-- front pop handle head from the order storage
+__fpopOS: OrderStorage -> Decimal -> OrderStorage
+__fpopOS os price =
+  let
+    first = __fpopId os price
+  in
+  if first == 0 then
     os
   else
-    __traverseAndInsert os price headId amount
+    let
+      orderList = fromOptional M.empty (M.lookup price os.list)
+      nextId = fromOptional 0 (M.lookup first orderList)
+      -- set next Id as os.head[price]
+      newHead = M.insert price nextId os.head
+      -- delete the first order from the order list
+      newOrderList = M.delete first orderList
+      newList = M.insert price newOrderList os.list
+    in os with head = newHead; list = newList
