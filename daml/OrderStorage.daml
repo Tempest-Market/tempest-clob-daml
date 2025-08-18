@@ -28,10 +28,6 @@ data OrderStorage = OrderStorage
   deriving (Eq, Show)
 
 
-test: Int -> Int -> Int
-test a b = a + b
-
-
 -- -------------------------
 -- Methods to change the state of the OrderStorage
 -- -------------------------
@@ -90,5 +86,14 @@ __traverseAndInsert os price headId amount =
               _traverseAndInsert os price nextId amount
 
 
-
-
+-- front pop from the order storage
+_fpop: OrderStorage -> Decimal -> OrderStorage
+_fpop os price =
+  let
+    headId = fromOptional 0 (M.lookup price os.head)
+    orderList = fromOptional M.empty (M.lookup price os.list)
+  in
+  if headId == 0 || orderList == M.empty then
+    os
+  else
+    __traverseAndInsert os price headId amount
