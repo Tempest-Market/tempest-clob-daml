@@ -19,7 +19,7 @@ data OrderStorage = OrderStorage
     -- list[price][id] = nextId (0 if empty)
     list         : M.Map Decimal (M.Map Int Int)
     -- orders[id] = Order
-    orders       : M.Map Int Order
+    orders       : M.Map Int (Optional Order)
     -- head[price] = id of head (0 if empty)
     head         : M.Map Decimal Int
     count        : Int         -- last issued id (0 means none yet)
@@ -47,11 +47,11 @@ _insertId os price id amount =
       in os with head = newHead; list = newList; orders = orders
     -- traverse in the order list and insert the order
     else
-      __traverseAndInsert os price headId amount
+      __traverseAndInsert os price 0 headId amount
       
 -- internal internal function to traverse the order list and insert the order in _insertId
-__traverseAndInsert : OrderStorage -> Decimal -> Int -> Decimal -> OrderStorage
-__traverseAndInsert os price headId amount =
+__traverseAndInsert : OrderStorage -> Decimal -> Int -> Int -> Decimal -> OrderStorage
+__traverseAndInsert os price last headId amount =
   if headId == 0 then
     os
   else
@@ -63,27 +63,50 @@ __traverseAndInsert os price headId amount =
       nextId = fromOptional 0 (M.lookup headId orderList)
     in
     if nextId == 0 then
-      -- TODO: no order at nextId; treat as end
+      -- no order at nextId; treat as end which has been handled in the head case
       os
     else
       case M.lookup nextId os.orders of
-        None ->
-          -- no order at nextId; treat as end
-          os
         -- if next order exists, ordering between nextOrder based on amount is determined
-        Some nextOrder ->
+        Some (Some nextOrder) ->
           let nextAmount = nextOrder.depositAmount
           in
-          case compare nextAmount amount of
-            -- if next order amount is less than the amount insert the order before nextOrder
+          case compare amount nextAmount of
+            -- if next order amount is less than the nextAmount, traverse until you find the next order that is less than the amount 
             LT ->
-              os
+              let last = headId
+              in __traverseAndInsert os price last nextId amount
             -- if next order amount is equal to the amount insert the order after nextOrder
             EQ ->
-              os
-            -- if next order amount is greater than the amount insert the order, traverse until you find the next order that is less than the amount
+              let 
+                nextNextId: Int
+                nextNextId = fromOptional 0 (M.lookup nextId orderList)
+                orderList' = M.insert headId nextNextId orderList 
+                orderList'' = M.insert nextId headId orderList'
+                newList = M.insert price orderList'' os.list
+              in os with list = newList
+            -- if next order amount is greater than the amount insert the order, insert the order before nextOrder
             GT ->
-              __traverseAndInsert os price nextId amount
+              if nextAmount == 0.0 then
+                -- Insert order at the end of the list
+                let
+                  priceHead = fromOptional 0 (M.lookup price os.head)
+                  orderList' = M.insert priceHead headId orderList
+                  orderList'' = M.insert headId 0 orderList'
+                  newList = M.insert price orderList'' os.list
+                in os with list = newList
+              else 
+                -- Insert order at the in the middle of the list
+                let
+                  orderList' = M.insert last headId orderList
+                  orderList'' = M.insert headId nextId orderList'
+                  newList = M.insert price orderList'' os.list
+                in os with list = newList
+        _ ->
+          -- no order at nextId; treat as end which has been handled in the head case
+          os
+
+             
 
 
 -- front pop Id from the order storage
@@ -126,3 +149,37 @@ _fpop os price =
       newOS = __fpopOS os price
     in
     (first, newOS)
+
+
+
+_createOrder: OrderStorage -> Party -> Decimal -> Decimal -> (Int, Bool, OrderStorage)
+_createOrder os pty price depositAmount = 
+   -- assertMsg "price must be positive" (price > 0.0)
+   -- create order
+   let 
+    newOrder = Order with owner=pty; price=price; depositAmount=depositAmount
+    foundDmt = False
+    -- max int in daml is 2^63 - 1 = 9223372036854775807
+    newCount = if os.count == 0 || os.count == 9223372036854775807 then
+      1 else os.count+1
+    orderList = fromOptional M.empty (M.lookup price os.list)
+    oldOrderId = fromOptional 0 (M.lookup os.count orderList)
+   in 
+    -- check if the order already exists
+    if orderList /= M.empty && oldOrderId /= 0 then
+      -- store canceling order to dormant order 
+      let 
+        oldOrder: Optional Order
+        oldOrder = fromOptional None (M.lookup oldOrderId os.orders)
+        -- TODO: add delete order method and insert the order
+        -- os' = _deleteOrder
+        -- TODO: insert new order from the removed order
+        newOrders = os.orders
+        os' = os with orders=newOrders; count=newCount; dormantOrder=oldOrder
+        foundDmt = True
+      in (newCount, True, os')
+    else
+      -- insert order
+      let 
+        newOrders = M.insert newCount (Some newOrder) os.orders
+      in (newCount, False, os with orders=newOrders)

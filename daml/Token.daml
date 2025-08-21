@@ -28,11 +28,6 @@ template Token with
   -- Helpers (pure)
   ----------------------------------------
   -- get balance (default 0.0)
-  nonconsuming choice Noop : ()
-    controller issuer
-    do
-      pure ()
-
   -- local pure functions
   -- NOTE: Pure helpers are defined as `let` blocks inside choices that need them.
 
