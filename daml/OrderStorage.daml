@@ -183,3 +183,12 @@ _createOrder os pty price depositAmount =
       let 
         newOrders = M.insert newCount (Some newOrder) os.orders
       in (newCount, False, os with orders=newOrders)
+
+
+_deleteOrder: OrderStorage -> Int -> OrderStorage
+_deleteOrder os id =
+  let
+    orderList = fromOptional M.empty (M.lookup os.price os.list)
+    newOrderList = M.delete id orderList
+    newList = M.insert os.price newOrderList os.list
+  in os with list = newList

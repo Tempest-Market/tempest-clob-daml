@@ -2,13 +2,91 @@
 
 # tempest-clob-daml
 
-See [documentation] for details.
+fully onchain CLOB on DAML from [solidity version]()
 
-[documentation]: https://docs.daml.com/getting-started/installation.html
+## Overview 
 
-Please ask for help on [the Daml forum] if you encounter any issue!
+```mermaid
+classDiagram
+direction TB
 
-[the Daml forum]: https://discuss.daml.com
+    class OrderIdLinkedList {
+        +Map~Int, Int~
+    }
+
+    OrderStorage --> OrderIdLinkedList : contains
+
+	class Order {
+		+Party owner
+		+Decimal price
+		+Decimal depositAmount
+	}
+
+    class OrderStorage {
+		+Map~Decimal, OrderIdLinkedList~ list
+		+Map~Int, Order~ orders
+		+Map~Decimal, Int~ head
+		+Int count
+		+Order dormantOrder
+		+_createOrder()
+		+_insertId()
+		+_decreaseOrder()
+		+_deleteOrder()
+    }
+
+    class PriceList {
+		+Map~Decimal, Decimal~ bidPrices
+		+Map~Decimal, Decimal~ askPrices
+		+Decimal bidHead
+		+Decimal askHead
+		+Decimal lmp
+		+_insert()
+		+_next()
+		+_askHead()
+		+_bidHead()
+		+_mktPrice()
+		+_setLmp()
+		+_clearHead()
+		+_delete()
+    }
+
+    class Orderbook {
+	    +String symbol
+	    +PriceList bidPrices
+	    +PriceList askPrices
+	    +OrderStorage bidOrders
+	    +OrderStorage askOrders
+		+fpop()
+	    +placeBid()
+	    +placeAsk()
+	    +cancelOrder()
+    }
+
+    class MatchingEngine {
+	    +Map~String, Orderbook~ orderbook
+		+limitBuy()
+	    +limitSell()
+	    +marketBuy()
+	    +marketSell()
+	    +createOrders()
+	    +updateOrders()
+	    +cancelOrders()
+	    +deposit()
+	    +withdraw()
+		+_limitOrder()
+		+_matchAt()
+    }
+
+	MatchingEngine --> Orderbook : contains
+	Orderbook --> OrderStorage : contains
+	Orderbook --> PriceList : contains
+	OrderStorage --> Order : contains
+```
+The matching engine is one big state machine data type defined in DAML. Template in DAML will create new contract whenever the state of the matching engine changes from its methods. 
+
+## Private transactions
+
+As the orders in the matching engine is accessed through one shared public key, a private account to mix all users who needs privacy is needed. A separate template contract from DAML is used to record user's balances before submitting order commands to matching engine contract is being developed.  
 
 ## Development Quick Start
 
